@@ -1,0 +1,53 @@
+#!/bin/bash
+
+app_name=$(basename "$0")
+
+display_usage() {
+	echo "Find an svn revision that occurred exactly <depth> revisions ago for a specified"
+	echo "branch/tree."
+    echo ""
+	echo "Usage:"
+	echo "  $app_name [svn-url] [--depth=n]"
+	echo ""
+	echo "Options:"
+	echo "  --depth=n    number of revisions to clone (default=1)"
+	echo ""
+	echo "Examples:"
+	echo "  $app_name https://svn/proj/trunk       [when accessing remote repo]"
+}
+
+SHOWHELP=0
+DEPTH=1
+
+for item; do
+    rvalue="${item#*=}"
+
+    if (( ! end_of_options )); then
+        [[ "$item" == --help     ]] && SHOWHELP=1       && continue
+        [[ "$item" == --depth=*  ]] && DEPTH=$rvalue    && continue
+        [[ "$item" == --         ]] && end_of_options=1 && continue
+
+        [[ "$item" == --*        ]] && {
+            >&2 echo "unrecognized option: $item"
+            CLI_ERROR=1
+            conntinue
+        }
+    fi
+
+    POSITIONAL+=( "$item" )
+done
+
+if (( SHOWHELP )); then
+    display_usage
+    exit 0
+fi
+
+(( CLI_ERROR )) && exit 1
+
+# echo "Looking back ${REV_COUNT} revisions in ${SVN_URL}"
+
+# svn's log output is circa 1999, when monitors were gross sub-pixel rendering of TTF not widely available yet.
+# which is to say, they spammed it with lots of nasty cruft like full-line separators, even in "quiet" mode >_<
+FIRST_REV=$(svn log $SVN_URL --quiet --limit $DEPTH | egrep -v -- '^-----------------------------' | tail -n1 | cut -f1 -d'|') || exit
+
+echo ${FIRST_REV#r}

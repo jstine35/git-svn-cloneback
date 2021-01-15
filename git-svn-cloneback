@@ -1,0 +1,40 @@
+#!/bin/bash
+
+mydir=$(dirname $(realpath ${BASH_SOURCE[0]}))
+
+DEPTH=1
+POSITIONAL=( )
+OPTIONS=()
+for item; do
+    rvalue="${item#*=}"
+
+    if (( ! end_of_options )); then
+        [[ "$item" == --help     ]] && SHOWHELP=1       && continue
+        [[ "$item" == --depth=*  ]] && DEPTH=$rvalue    && continue
+        [[ "$item" == --         ]] && end_of_options=1 && continue
+        [[ "$item" == -*         ]] && OPTIONS+=( "$item" ) && continue;
+    fi
+
+    POSITIONAL+=( "$item" )
+done
+
+set -- "${POSITIONAL[@]}"
+
+if (( SHOWHELP )); then
+    echo "Initializes a git clone of an arbitrary SVN branch, by finding the relevant svn"
+    echo "revisions for the desired svn branch. Cloned history depth is fully configurable."
+    echo 
+    echo "Usage:"
+    echo "  $(basename "$0") [--depth=n] [git_clone_options] http://svn/url [outdir]"
+	echo ""
+    echo "  git_clone_options    these options are passed through directly to git svn clone"
+	exit 0
+fi
+
+first_rev=$($mydir/svn-lookback --depth=$DEPTH "$1")
+if (( ! first_rev )); then
+    >&2 echo "svn-cloneback failed to find a valid ref for the given branch/url."
+    exit 1
+fi
+
+git svn clone -r$first_rev:HEAD "${OPTIONS[@]}" "$@"
